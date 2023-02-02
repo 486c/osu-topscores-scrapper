@@ -1,20 +1,21 @@
-use hyper::{ 
-    client::{Client, HttpConnector }, 
-    Body, Request, Method, body::Bytes, StatusCode, 
-    header::{ACCEPT, CONTENT_TYPE, AUTHORIZATION, USER_AGENT} 
+use hyper::{
+    body::Bytes,
+    client::{Client, HttpConnector},
+    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT},
+    Body, Method, Request, StatusCode,
 };
-use hyper_rustls::{ HttpsConnector, HttpsConnectorBuilder };
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
-use serde::Deserialize;
-use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
-use serde::de::DeserializeOwned;
 use serde::de;
+use serde::de::DeserializeOwned;
+use serde::de::{Deserializer, Error, SeqAccess, Unexpected, Visitor};
+use serde::Deserialize;
 
-use crate::error::{ OsuApiError, ApiErrorResponse };
-use std::fmt::Write;
-use std::string::ToString;
-use std::str::FromStr;
+use crate::error::{ApiErrorResponse, OsuApiError};
 use std::fmt;
+use std::fmt::Write;
+use std::str::FromStr;
+use std::string::ToString;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 
@@ -36,14 +37,14 @@ where
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                match NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ") {
-                    Ok(ndt) => Ok(DateTime::from_utc(ndt, Utc)),
-                    Err(e) => Err(E::custom(format!("Parse error {} for {}", e, value))),
-                }
+        where
+            E: de::Error,
+        {
+            match NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ") {
+                Ok(ndt) => Ok(DateTime::from_utc(ndt, Utc)),
+                Err(e) => Err(E::custom(format!("Parse error {} for {}", e, value))),
             }
+        }
     }
 
     d.deserialize_str(LocalDateTimeVisitor)
@@ -57,8 +58,7 @@ pub fn cut(mut source: &str, n: usize) -> impl Iterator<Item = &str> {
             let end_idx = source
                 .char_indices()
                 .nth(n - 1)
-                .map_or_else(|| source.len(), |(idx, c)| idx + c.len_utf8() 
-                            );
+                .map_or_else(|| source.len(), |(idx, c)| idx + c.len_utf8());
 
             let (split, rest) = source.split_at(end_idx);
 
@@ -98,7 +98,7 @@ impl ToString for OsuMods {
 
         if self.is_empty() {
             res.push_str("NM");
-            return res
+            return res;
         }
 
         if self.contains(OsuMods::NOFAIL) {
@@ -171,7 +171,7 @@ impl FromStr for OsuMods {
                 "FD" => flags | OsuMods::FADEIN,
                 _ => flags,
             };
-        };
+        }
 
         Ok(flags)
     }
@@ -214,11 +214,12 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
             "SO" => OsuMods::SPUNOUT,
             "PF" => OsuMods::PERFECT,
             "FD" => OsuMods::FADEIN,
-            _ => return Err(
-                Error::invalid_value(
+            _ => {
+                return Err(Error::invalid_value(
                     Unexpected::Str(v),
-                    &r#"valid mods acronym"#)
-                ),
+                    &r#"valid mods acronym"#,
+                ))
+            }
         };
 
         Ok(mods)
@@ -297,10 +298,7 @@ pub struct OsuApi {
 }
 
 impl OsuApi {
-    pub async fn new(
-        client_id: i32, 
-        client_secret: &str
-    ) -> ApiResult<Self> {
+    pub async fn new(client_id: i32, client_secret: &str) -> ApiResult<Self> {
         let https = HttpsConnectorBuilder::new()
             .with_native_roots()
             .https_only()
@@ -309,7 +307,7 @@ impl OsuApi {
 
         let client = Client::builder().build(https);
 
-        let mut api = Self { 
+        let mut api = Self {
             client,
             client_id,
             client_secret: client_secret.to_string(),
@@ -326,8 +324,8 @@ impl OsuApi {
             "https://osu.ppy.sh/api/v2/users/{}/scores/{}",
             user_id, "best"
         );
-        let _  = write!(link, "?mode=osu");
-        let _  = write!(link, "&limit=100");
+        let _ = write!(link, "?mode=osu");
+        let _ = write!(link, "&limit=100");
 
         self.make_request(Method::GET, &link).await
     }
@@ -337,16 +335,16 @@ impl OsuApi {
             "https://osu.ppy.sh/api/v2/rankings/{}/{}",
             "osu", "performance"
         );
-        let _  = write!(link, "?country={}", country);
+        let _ = write!(link, "?country={}", country);
 
         self.make_request(Method::GET, &link).await
     }
-    
+
     // Make request with corresponding token (that we requested earlier
     async fn make_request<T: DeserializeOwned>(&self, method: Method, link: &str) -> ApiResult<T> {
         let token = match &self.token {
             Some(t) => t.as_str(),
-            None => return Err(OsuApiError::NoToken)
+            None => return Err(OsuApiError::NoToken),
         };
 
         let req = Request::builder()
@@ -374,37 +372,32 @@ impl OsuApi {
             _ => (),
         };
 
-        let err: ApiErrorResponse = serde_json::from_slice(&bytes)
-            .map_err(|e| {
-                OsuApiError::ParsingError {
-                    inner: e,
-                    body: bytes.clone(),
-                }
+        let err: ApiErrorResponse =
+            serde_json::from_slice(&bytes).map_err(|e| OsuApiError::ParsingError {
+                inner: e,
+                body: bytes.clone(),
             })?;
 
-        Err(OsuApiError::ApiError { 
-            inner: err 
-        })
+        Err(OsuApiError::ApiError { inner: err })
     }
 
     async fn parse_bytes<T: DeserializeOwned>(&self, bytes: &Bytes) -> ApiResult<T> {
-        serde_json::from_slice(bytes).map_err(|e| {
-            OsuApiError::ParsingError {
-                inner: e,
-                body: bytes.clone(),
-            }
+        serde_json::from_slice(bytes).map_err(|e| OsuApiError::ParsingError {
+            inner: e,
+            body: bytes.clone(),
         })
     }
-    
+
     async fn request_oauth(&self) -> ApiResult<String> {
         let data = format!(
-        r#"{{
+            r#"{{
             "client_id":"{}",
             "client_secret":"{}",
             "grant_type":"client_credentials",
             "scope":"public" 
         }}"#,
-        &self.client_id, &self.client_secret);
+            &self.client_id, &self.client_secret
+        );
 
         let req = Request::builder()
             .method(Method::POST)

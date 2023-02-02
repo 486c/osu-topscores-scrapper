@@ -1,5 +1,5 @@
-use hyper::http::Error;
 use hyper::body::Bytes;
+use hyper::http::Error;
 
 use serde::Deserialize;
 
@@ -7,36 +7,41 @@ use std::{error::Error as StdError, fmt};
 
 #[derive(Debug, Deserialize)]
 pub struct ApiErrorResponse {
-    pub error: String
+    pub error: String,
 }
 
 // implement stderror traits
 
 #[derive(Debug)]
 pub enum OsuApiError {
-    HyperError { inner: hyper::Error },
-    HyperHttpError { inner: Error },
-    ApiError { inner: ApiErrorResponse },
-    ParsingError { inner: serde_json::Error, body: Bytes },
+    HyperError {
+        inner: hyper::Error,
+    },
+    HyperHttpError {
+        inner: Error,
+    },
+    ApiError {
+        inner: ApiErrorResponse,
+    },
+    ParsingError {
+        inner: serde_json::Error,
+        body: Bytes,
+    },
     BadRequest,
     ServiceUnavailable,
     RateLimited,
-    NoToken
+    NoToken,
 }
 
 impl From<Error> for OsuApiError {
     fn from(value: Error) -> Self {
-        Self::HyperHttpError {
-            inner: value
-        }
+        Self::HyperHttpError { inner: value }
     }
 }
 
 impl From<hyper::Error> for OsuApiError {
     fn from(value: hyper::Error) -> Self {
-        Self::HyperError {
-            inner: value
-        }
+        Self::HyperError { inner: value }
     }
 }
 impl StdError for OsuApiError {
@@ -53,7 +58,6 @@ impl StdError for OsuApiError {
         }
     }
 }
-
 
 impl fmt::Display for OsuApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
