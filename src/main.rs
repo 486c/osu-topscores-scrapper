@@ -5,15 +5,23 @@ use crate::osu_api::OsuApi;
 use clap::Parser;
 
 use chrono::{DateTime, NaiveDate, Utc, NaiveDateTime, NaiveTime};
-use serde::Deserialize;
+use serde::Serialize;
+use std::fs::File;
+
+use dotenv::dotenv;
+use std::env;
+
+use eyre::Result;
 
 macro_rules! str_to_datetime {
     ($s:expr) => {{ 
         let naivedate = NaiveDate::parse_from_str(
             $s, "%d-%m-%Y"
-        ).unwrap(); // TODO remove unwrap
+        )?;
+        
+        // Should never fails so using unwrap
+        let naivetime = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
 
-        let naivetime = NaiveTime::from_hms_opt(0, 0, 0).unwrap(); // TODO remove unwrap
         let ndt = NaiveDateTime::new(naivedate, naivetime);
         DateTime::from_utc(ndt, Utc)
     }};
@@ -35,7 +43,7 @@ struct Args {
     pub amount: i32
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize)]
 struct Output {
     username: String,
     pp: f32,
@@ -43,6 +51,7 @@ struct Output {
     replay: bool,
     map: String,
     diff: String,
+    score_link: String,
     mods: String,
     country_rank: i32,
     global_rank: i32,
@@ -50,24 +59,21 @@ struct Output {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let args = Args::parse();
+    dotenv()?;
 
     let from: DateTime<Utc> = str_to_datetime!(&args.from);
     let to: DateTime<Utc> = str_to_datetime!(&args.to);
     let amount = args.amount;
 
-    // TODO move to env
-    let client_id = -1;
-    let client_secret = "changeme";
-
     let api = OsuApi::new(
-        client_id,
-        client_secret
-    ).await.unwrap();
+        env::var("CLIENT_ID")?.parse()?,
+        env::var("CLIENT_SECRET")?.as_str()
+    ).await?;
 
     let users = api.get_country_ranking("by")
-        .await.unwrap()
+        .await?
         .ranking;
 
     let mut output: Vec<Output> = Vec::with_capacity(amount as usize);
@@ -79,8 +85,7 @@ async fn main() {
 
         // Getting scores
         let scores = api.get_user_best_scores(user.id)
-            .await
-            .unwrap();
+            .await?;
         
         for score in scores {
             if score.created_at > from && score.created_at < to {
@@ -94,6 +99,10 @@ async fn main() {
                             score.beatmapset.artist,
                             score.beatmapset.title),
                         diff: score.beatmap.version,
+                        score_link: format!(
+                            "https://osu.ppy.sh/scores/osu/{}",
+                            score.id
+                        ),
                         mods: score.mods.to_string(),
                         country_rank: index as i32,
                         global_rank: user_stats.global_rank,
@@ -103,5 +112,14 @@ async fn main() {
         }
     }
 
-    dbg!(output);
+    let file = File::create("output.csv")?;
+    let mut wtr = csv::Writer::from_writer(file);
+
+    for o in output {
+        wtr.serialize(o)?;
+    }
+
+    wtr.flush()?;
+
+    Ok(())
 }
