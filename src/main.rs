@@ -78,7 +78,10 @@ async fn main() -> Result<()> {
 
     let mut output: Vec<Output> = Vec::with_capacity(amount as usize);
     
-    for (index, user_stats) in users.iter().enumerate().take(amount as usize) {
+    for (index, user_stats) in users.iter()
+        .enumerate()
+        .take(amount as usize) {
+
         let user = &user_stats.user;
 
         println!("Processing user {}", user.username);
@@ -86,29 +89,29 @@ async fn main() -> Result<()> {
         // Getting scores
         let scores = api.get_user_best_scores(user.id)
             .await?;
-        
-        for score in scores {
-            if score.created_at > from && score.created_at < to {
-                output.push(Output {
-                        username: user.username.clone(),
-                        pp: score.pp,
-                        date: score.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-                        replay: score.replay,
-                        map: format!(
-                            "{} - {}", 
-                            score.beatmapset.artist,
-                            score.beatmapset.title),
-                        diff: score.beatmap.version,
-                        score_link: format!(
-                            "https://osu.ppy.sh/scores/osu/{}",
-                            score.id
-                        ),
-                        mods: score.mods.to_string(),
-                        country_rank: index as i32,
-                        global_rank: user_stats.global_rank,
-                        total_pp: user_stats.pp
-                })
-            }
+
+        for score in scores.iter()
+            .filter(|&x| x.created_at > from && x.created_at < to) {
+
+            output.push(Output {
+                username: user.username.clone(),
+                pp: score.pp,
+                date: score.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                replay: score.replay,
+                map: format!(
+                    "{} - {}", 
+                    score.beatmapset.artist,
+                    score.beatmapset.title),
+                diff: score.beatmap.version.clone(),
+                score_link: format!(
+                    "https://osu.ppy.sh/scores/osu/{}",
+                    score.id
+                ),
+                mods: score.mods.to_string(),
+                country_rank: index as i32,
+                global_rank: user_stats.global_rank,
+                total_pp: user_stats.pp
+             })
         }
     }
 
