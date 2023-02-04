@@ -330,14 +330,32 @@ impl OsuApi {
         self.make_request(Method::GET, &link).await
     }
 
-    pub async fn get_country_ranking(&self, country: &str) -> ApiResult<RankingResponse> {
-        let mut link = format!(
-            "https://osu.ppy.sh/api/v2/rankings/{}/{}",
-            "osu", "performance"
-        );
-        let _ = write!(link, "?country={}", country);
+    pub async fn get_country_ranking(
+        &self, 
+        country: &str, 
+        pages: i32
+    ) -> ApiResult<Vec<UserStatistics>> {
 
-        self.make_request(Method::GET, &link).await
+        let mut buff = Vec::with_capacity(pages as usize * 50);
+
+        for page in 1..=pages {
+            let mut link = format!(
+                "https://osu.ppy.sh/api/v2/rankings/{}/{}",
+                "osu", "performance"
+            );
+
+            let _ = write!(
+                link, 
+                "?country={}&cursor[page]={}", 
+                country, page
+            );
+
+            let r: RankingResponse = self.make_request(Method::GET, &link).await?;
+
+            buff.extend(r.ranking);
+        }
+
+        Ok(buff)
     }
 
     // Make request with corresponding token (that we requested earlier
@@ -413,5 +431,29 @@ impl OsuApi {
         let r: OauthResponse = self.parse_bytes(&bytes).await?;
 
         Ok(r.access_token)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::osu_api::OsuApi;
+    use std::env;
+    use eyre::Result;
+    use dotenv::dotenv;
+
+    #[tokio::test]
+    async fn test_limit() -> Result<()> {
+        dotenv()?;
+
+        let api = OsuApi::new(
+            env::var("CLIENT_ID")?.parse()?,
+            env::var("CLIENT_SECRET")?.as_str(),
+        )
+        .await?;
+        let lb = api.get_country_ranking("by", 2).await?;
+
+        assert_eq!(lb.len(), 100);
+
+        Ok(())
     }
 }

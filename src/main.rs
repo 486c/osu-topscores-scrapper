@@ -36,6 +36,10 @@ struct Args {
     #[arg(short, long)]
     pub to: String,
 
+    /// Country code e.g. BY, US, UK, BE, JP
+    #[arg(short, long)]
+    pub country: String,
+
     /// Amount of users to process
     #[arg(short, long, default_value_t = 200)]
     pub amount: i32,
@@ -64,6 +68,7 @@ async fn main() -> Result<()> {
     let from: DateTime<Utc> = str_to_datetime!(&args.from);
     let to: DateTime<Utc> = str_to_datetime!(&args.to);
     let amount = args.amount;
+    let country = args.country;
 
     let api = OsuApi::new(
         env::var("CLIENT_ID")?.parse()?,
@@ -71,7 +76,10 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let users = api.get_country_ranking("by").await?.ranking;
+    let users = api.get_country_ranking(
+        &country,
+        (amount as f32 / 50.0).ceil() as i32
+    ).await?;
 
     let mut output: Vec<Output> = Vec::with_capacity(amount as usize);
 
