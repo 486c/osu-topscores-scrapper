@@ -547,6 +547,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee"
 
 [[package]]
+name = "osu-topscores-scrapper"
+version = "0.2.0"
+dependencies = [
+ "bitflags",
+ "chrono",
+ "clap",
+ "csv",
+ "dotenv",
+ "eyre",
+ "hyper",
+ "hyper-rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -893,23 +910,6 @@ name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
-
-[[package]]
-name = "vasteri-rs"
-version = "0.1.0"
-dependencies = [
- "bitflags",
- "chrono",
- "clap",
- "csv",
- "dotenv",
- "eyre",
- "hyper",
- "hyper-rustls",
- "serde",
- "serde_json",
- "tokio",
-]
 
 [[package]]
 name = "version_check"
