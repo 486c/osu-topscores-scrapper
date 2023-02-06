@@ -1,7 +1,7 @@
 mod error;
 mod osu_api;
 
-use crate::osu_api::OsuApi;
+use crate::osu_api::{ OsuApi, RankingType };
 use clap::Parser;
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
@@ -36,9 +36,14 @@ struct Args {
     #[arg(short, long)]
     pub to: String,
 
-    /// Country code e.g. BY, US, UK, BE, JP
+    /// Fetch global leaderboard? If set to true overrides --country flag
     #[arg(short, long)]
-    pub country: String,
+    pub global: bool,
+
+    /// Country code e.g. BY, US, UK, BE, JP
+    #[arg(short, long, required_unless_present("global"))]
+    pub country: Option<String>,
+
 
     /// Amount of users to process
     #[arg(short, long, default_value_t = 200)]
@@ -68,7 +73,10 @@ async fn main() -> Result<()> {
     let from: DateTime<Utc> = str_to_datetime!(&args.from);
     let to: DateTime<Utc> = str_to_datetime!(&args.to);
     let amount = args.amount;
-    let country = args.country;
+    let ranking = match args.global {
+        true => RankingType::Global,
+        false => RankingType::Country{ code: args.country.unwrap() },
+    };
 
     let api = OsuApi::new(
         env::var("CLIENT_ID")?.parse()?,
@@ -76,8 +84,9 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let users = api.get_country_ranking(
-        &country,
+
+    let users = api.get_ranking(
+        ranking,
         (amount as f32 / 50.0).ceil() as i32
     ).await?;
 

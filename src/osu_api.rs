@@ -297,6 +297,11 @@ pub struct OsuApi {
     token: Option<String>,
 }
 
+pub enum RankingType {
+    Country { code: String }, // Replace with cow
+    Global,
+}
+
 impl OsuApi {
     pub async fn new(client_id: i32, client_secret: &str) -> ApiResult<Self> {
         let https = HttpsConnectorBuilder::new()
@@ -330,9 +335,9 @@ impl OsuApi {
         self.make_request(Method::GET, &link).await
     }
 
-    pub async fn get_country_ranking(
+    pub async fn get_ranking(
         &self, 
-        country: &str, 
+        ranking: RankingType,
         pages: i32
     ) -> ApiResult<Vec<UserStatistics>> {
 
@@ -344,10 +349,20 @@ impl OsuApi {
                 "osu", "performance"
             );
 
-            let _ = write!(
-                link, 
-                "?country={country}&cursor[page]={page}"
-            );
+            match &ranking {
+                RankingType::Country { code } => {
+                    let _ = write!(
+                        link, 
+                        "?country={code}&cursor[page]={page}"
+                    );
+                },
+                RankingType::Global => {
+                    let _ = write!(
+                        link,
+                        "?cursor[page]={page}"
+                    );
+                }
+            }
 
             let r: RankingResponse = self.make_request(Method::GET, &link).await?;
 
@@ -435,7 +450,7 @@ impl OsuApi {
 
 #[cfg(test)]
 mod tests {
-    use crate::osu_api::OsuApi;
+    use crate::osu_api::{OsuApi, RankingType};
     use std::env;
     use eyre::Result;
     use dotenv::dotenv;
@@ -449,7 +464,9 @@ mod tests {
             env::var("CLIENT_SECRET")?.as_str(),
         )
         .await?;
-        let lb = api.get_country_ranking("by", 2).await?;
+        let ranking = RankingType::Country{ code: "by".to_owned() };
+
+        let lb = api.get_ranking(ranking, 2).await?;
 
         assert_eq!(lb.len(), 100);
 
