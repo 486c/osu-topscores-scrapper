@@ -42,7 +42,7 @@ where
         {
             match NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ") {
                 Ok(ndt) => Ok(DateTime::from_utc(ndt, Utc)),
-                Err(e) => Err(E::custom(format!("Parse error {} for {}", e, value))),
+                Err(e) => Err(E::custom(format!("Parse error {e} for {value}"))),
             }
         }
     }
@@ -346,8 +346,7 @@ impl OsuApi {
 
             let _ = write!(
                 link, 
-                "?country={}&cursor[page]={}", 
-                country, page
+                "?country={country}&cursor[page]={page}"
             );
 
             let r: RankingResponse = self.make_request(Method::GET, &link).await?;
@@ -368,7 +367,7 @@ impl OsuApi {
         let req = Request::builder()
             .method(method)
             .uri(link)
-            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .header(AUTHORIZATION, format!("Bearer {token}"))
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
             .header(USER_AGENT, "vasteri-bebrik")
