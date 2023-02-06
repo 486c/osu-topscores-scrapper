@@ -113,7 +113,7 @@ async fn main() -> Result<()> {
                 diff: score.beatmap.version.clone(),
                 score_link: format!("https://osu.ppy.sh/scores/osu/{}", score.id),
                 mods: score.mods.to_string(),
-                country_rank: index as i32,
+                country_rank: index as i32 + 1,
                 global_rank: user_stats.global_rank,
                 total_pp: user_stats.pp,
             })
