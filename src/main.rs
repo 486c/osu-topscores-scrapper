@@ -21,7 +21,7 @@ macro_rules! str_to_datetime {
         let naivetime = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
 
         let ndt = NaiveDateTime::new(naivedate, naivetime);
-        DateTime::from_utc(ndt, Utc)
+        DateTime::from_naive_utc_and_offset(ndt, Utc)
     }};
 }
 

@@ -10,8 +10,6 @@ pub struct ApiErrorResponse {
     pub error: String,
 }
 
-// implement stderror traits
-
 #[derive(Debug)]
 pub enum OsuApiError {
     HyperError {

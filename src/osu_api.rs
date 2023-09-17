@@ -41,7 +41,7 @@ where
             E: de::Error,
         {
             match NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ") {
-                Ok(ndt) => Ok(DateTime::from_utc(ndt, Utc)),
+                Ok(ndt) => Ok(DateTime::from_naive_utc_and_offset(ndt, Utc)),
                 Err(e) => Err(E::custom(format!("Parse error {e} for {value}"))),
             }
         }
@@ -70,7 +70,7 @@ pub fn cut(mut source: &str, n: usize) -> impl Iterator<Item = &str> {
 }
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     pub struct OsuMods: u32 {
         const NOMOD = 0;
         const NOFAIL = 1;
@@ -82,10 +82,10 @@ bitflags! {
         const DOUBLETIME = 64;
         const RELAX = 128;
         const HALFTIME = 256;
-        const NIGHTCORE = 512 | Self::DOUBLETIME.bits;
+        const NIGHTCORE = 512 | Self::DOUBLETIME.bits();
         const FLASHLIGHT = 1024;
         const SPUNOUT = 4096;
-        const PERFECT = 16_384 | Self::SUDDENDEATH.bits;
+        const PERFECT = 16_384 | Self::SUDDENDEATH.bits();
         const FADEIN = 1_048_576;
         const SCOREV2 = 536_870_912;
         const MIRROR = 1_073_741_824;
