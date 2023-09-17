@@ -264,13 +264,13 @@ pub struct Score {
     pub beatmap: BeatmapCompact,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct UserCompact {
     pub id: i64,
     pub username: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct UserStatistics {
     pub pp: f32,
     pub global_rank: i32,

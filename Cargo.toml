@@ -16,7 +16,7 @@ hyper = { version = "0.14.23", features = ['client'] }
 hyper-rustls = "0.23.2"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
-tokio = { version = "1.25.0", features = ['macros', 'rt-multi-thread'] }
+tokio = { version = "1.25.0", features = ['macros', 'rt-multi-thread', 'sync'] }
 
 [target.x86_64-pc-windows-gnu.dependencies]
 bitflags = "2.4.0"
@@ -29,7 +29,7 @@ hyper = { version = "0.14.23", features = ['client'] }
 hyper-rustls = "0.23.2"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
-tokio = { version = "1.25.0", features = ['macros', 'rt-multi-thread'] }
+tokio = { version = "1.25.0", features = ['macros', 'rt-multi-thread', 'sync'] }
 
 [profile.release]
 lto = "thin"

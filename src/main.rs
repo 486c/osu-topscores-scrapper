@@ -5,8 +5,11 @@ use crate::osu_api::{ OsuApi, RankingType };
 use clap::Parser;
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use osu_api::UserStatistics;
 use serde::Serialize;
-use std::fs::File;
+use std::{fs::File, sync::{Arc, }};
+
+use tokio::sync::mpsc::{Sender, channel};
 
 use dotenv::dotenv;
 use std::env;
@@ -21,8 +24,16 @@ macro_rules! str_to_datetime {
         let naivetime = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
 
         let ndt = NaiveDateTime::new(naivedate, naivetime);
-        DateTime::from_naive_utc_and_offset(ndt, Utc)
+        let r: DateTime<Utc> = DateTime::from_naive_utc_and_offset(ndt, Utc);
+
+        r
     }};
+}
+
+#[derive(Debug, Clone)]
+pub struct Period {
+    from: DateTime<Utc>,
+    to: DateTime<Utc>
 }
 
 #[derive(Parser, Debug)]
@@ -65,46 +76,54 @@ struct Output {
     total_pp: f32,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let args = Args::parse();
-    dotenv()?;
+async fn fetch_thread(
+    api: Arc<OsuApi>,
+    tx: Sender<Output>,
+    users: Vec<UserStatistics>,
+    amount: usize,
+    period: Period
+) {
+    for (index, user_stats) in users
+        .iter()
+        .enumerate()
+        .take(amount) 
+    {
+        let stats = user_stats.clone();
+        let tx = tx.clone();
+        let api = Arc::clone(&api);
+        let period = period.clone();
 
-    let from: DateTime<Utc> = str_to_datetime!(&args.from);
-    let to: DateTime<Utc> = str_to_datetime!(&args.to);
-    let amount = args.amount;
-    let ranking = match args.global {
-        true => RankingType::Global,
-        false => RankingType::Country{ code: args.country.unwrap() },
-    };
+        tokio::spawn(async move {
+            let _ = process_score(
+                Arc::clone(&api),
+                tx,
+                stats,
+                index,
+                period
+            ).await;
+        });
+    }
+}
 
-    let api = OsuApi::new(
-        env::var("CLIENT_ID")?.parse()?,
-        env::var("CLIENT_SECRET")?.as_str(),
-    )
-    .await?;
+async fn process_score(
+    api: Arc<OsuApi>, 
+    tx: Sender<Output>,
+    user_stats: UserStatistics,
+    index: usize,
+    period: Period
+) -> Result<()> {
+    let user = &user_stats.user;
 
+    println!("Processing user {}", user.username);
 
-    let users = api.get_ranking(
-        ranking,
-        (amount as f32 / 50.0).ceil() as i32
-    ).await?;
+    // Getting scores
+    let scores = api.get_user_best_scores(user.id).await?;
 
-    let mut output: Vec<Output> = Vec::with_capacity(amount as usize);
-
-    for (index, user_stats) in users.iter().enumerate().take(amount as usize) {
-        let user = &user_stats.user;
-
-        println!("Processing user {}", user.username);
-
-        // Getting scores
-        let scores = api.get_user_best_scores(user.id).await?;
-
-        for score in scores
-            .iter()
-            .filter(|&x| x.created_at > from && x.created_at < to)
+    for score in scores
+        .iter()
+        .filter(|&x| x.created_at > period.from && x.created_at < period.to)
         {
-            output.push(Output {
+            let _ = tx.send(Output {
                 username: user.username.clone(),
                 pp: score.pp,
                 date: score.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
@@ -116,11 +135,64 @@ async fn main() -> Result<()> {
                 country_rank: index as i32 + 1,
                 global_rank: user_stats.global_rank,
                 total_pp: user_stats.pp,
-            })
+            }).await;
         }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let args = Args::parse();
+    dotenv()?;
+
+    let from: DateTime<Utc> = str_to_datetime!(&args.from);
+    let to: DateTime<Utc> = str_to_datetime!(&args.to);
+
+    let period = Period{
+        from,
+        to
+    };
+
+    let amount = args.amount;
+
+    let ranking = match args.global {
+        true => RankingType::Global,
+        false => RankingType::Country{ code: args.country.unwrap() },
+    };
+
+    let api = Arc::new(OsuApi::new(
+        env::var("CLIENT_ID")?.parse()?,
+        env::var("CLIENT_SECRET")?.as_str(),
+        ).await?
+    );
+    
+    println!("Getting leaderboard...");
+    let users = api.get_ranking(
+        ranking,
+        (amount as f32 / 50.0).ceil() as i32
+    ).await?;
+
+    let mut output: Vec<Output> = Vec::with_capacity(amount as usize);
+
+    let (tx, mut rx) = channel(amount as usize);
+
+    tokio::spawn(fetch_thread(
+        Arc::clone(&api),
+        tx,
+        users,
+        amount as usize,
+        period
+    ));
+    
+    while let Some(i) = rx.recv().await {
+        output.push(i);
     }
 
+    println!("Found {} scores!", output.len());
+
     let file = File::create("output.csv")?;
+
     let mut wtr = csv::Writer::from_writer(file);
 
     for o in output {
