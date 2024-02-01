@@ -251,12 +251,12 @@ pub struct BeatmapSetCompact {
 #[derive(Debug, Deserialize)]
 pub struct Score {
     pub id: i64,
-    pub best_id: i64,
+    pub best_id: Option<i64>,
     pub user_id: i64,
     pub accuracy: f32,
     pub mods: OsuMods,
     pub score: i64,
-    pub pp: f32,
+    pub pp: Option<f32>,
     #[serde(deserialize_with = "deserialize_utc_datetime")]
     pub created_at: DateTime<Utc>,
     pub replay: bool,
@@ -390,7 +390,7 @@ impl OsuApi {
 
         let mut resp = self.client.request(req).await?;
         let bytes = self.handle_error(&mut resp).await?;
-
+        
         self.parse_bytes(&bytes).await
     }
 
@@ -464,11 +464,33 @@ mod tests {
             env::var("CLIENT_SECRET")?.as_str(),
         )
         .await?;
+
         let ranking = RankingType::Country{ code: "by".to_owned() };
 
         let lb = api.get_ranking(ranking, 2).await?;
 
         assert_eq!(lb.len(), 100);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_user_best_scores_health() -> Result<()> {
+        dotenv()?;
+
+        let api = OsuApi::new(
+            env::var("CLIENT_ID")?.parse()?,
+            env::var("CLIENT_SECRET")?.as_str(),
+        )
+        .await?;
+
+        api.get_user_best_scores(6892711).await?;
+
+        // Edge case: with null pp's
+        api.get_user_best_scores(32743279).await?;
+
+        // Edge case: lazer scores in top100
+        api.get_user_best_scores(6716499).await?;
 
         Ok(())
     }

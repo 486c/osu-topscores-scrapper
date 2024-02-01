@@ -7,7 +7,7 @@ use clap::Parser;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use osu_api::UserStatistics;
 use serde::Serialize;
-use std::{fs::File, sync::{Arc, }};
+use std::{fs::File, sync::Arc};
 
 use tokio::sync::mpsc::{Sender, channel};
 
@@ -125,12 +125,12 @@ async fn process_score(
         {
             let _ = tx.send(Output {
                 username: user.username.clone(),
-                pp: score.pp,
+                pp: score.pp.unwrap_or(0.0),
                 date: score.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
                 replay: score.replay,
                 map: format!("{} - {}", score.beatmapset.artist, score.beatmapset.title),
                 diff: score.beatmap.version.clone(),
-                score_link: format!("https://osu.ppy.sh/scores/osu/{}", score.id),
+                score_link: format!("https://osu.ppy.sh/scores/{}", score.id),
                 mods: score.mods.to_string(),
                 country_rank: index as i32 + 1,
                 global_rank: user_stats.global_rank,
